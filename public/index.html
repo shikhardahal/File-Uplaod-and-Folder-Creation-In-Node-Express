@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Folder Explorer</title>
+    <style>
+        .folder {
+            margin-left: 20px;
+        }
+        .subfolders {
+            margin-left: 20px;
+        }
+        .file-input {
+            margin-bottom: 10px;
+        }
+        .error-message {
+            color: red;
+            margin-top: 5px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Folder Explorer</h1>
+    <div id="folderExplorer">
+        <!-- Root folder -->
+        <div class="folder" data-folder-id="root">
+            <input type="text" placeholder="Enter folder name" id="newFolderName">
+            <button onclick="createNewFolder('root')">Create Folder</button>
+            <input type="file" class="file-input" id="fileInput">
+            <button onclick="uploadFiles('root')">Upload Files</button>
+            <div class="subfolders" id="rootFolders"></div>
+        </div>
+    </div>
+    <div id="errorMessage" class="error-message" style="display: none;"></div>
+    <script>
+        // Function to create a new folder
+        async function createNewFolder(parentFolderId) {
+            const folderNameInput = document.getElementById('newFolderName');
+            const folderName = folderNameInput.value.trim();
+            if (folderName === '') {
+                displayErrorMessage('Folder name cannot be empty.');
+                return;
+            }
+            try {
+                const response = await fetch('/api/folders/create', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        name: folderName,
+                        parentFolderId: parentFolderId
+                    })
+                });
+                const data = await response.json();
+                if (response.ok) {
+                    // Folder created successfully, update UI
+                    const folderElement = document.createElement('div');
+                    folderElement.classList.add('folder');
+                    folderElement.setAttribute('data-folder-id', data._id);
+                    folderElement.innerHTML = `
+                        <input type="text" placeholder="Enter folder name" id="newFolderName">
+                        <button onclick="createNewFolder('${data._id}')">Create Folder</button>
+                        <input type="file" class="file-input" id="fileInput">
+                        <button onclick="uploadFiles('${data._id}')">Upload Files</button>
+                        <div class="subfolders"></div>
+                    `;
+                    document.querySelector(`.folder[data-folder-id="${parentFolderId}"] .subfolders`).appendChild(folderElement);
+                    // Clear input field
+                    folderNameInput.value = '';
+                    hideErrorMessage();
+                } else {
+                    // Display error message
+                    displayErrorMessage(data.error);
+                }
+            } catch (error) {
+                console.error('Error creating folder:', error);
+                displayErrorMessage('Error creating folder. Please try again.');
+            }
+        }
+        
+        // Function to upload files to a folder
+        async function uploadFiles(folderId) {
+            const fileInput = document.getElementById('fileInput');
+            const files = fileInput.files;
+            if (files.length === 0) {
+                displayErrorMessage('Please select a file to upload.');
+                return;
+            }
+            const formData = new FormData();
+            for (const file of files) {
+                formData.append('files', file);
+            }
+            try {
+                const response = await fetch(`/api/folders/${folderId}/upload`, {
+                    method: 'POST',
+                    body: formData
+                });
+                const data = await response.json();
+                if (response.ok) {
+                    // File uploaded successfully, update UI
+                    console.log('Files uploaded successfully:', data);
+                    hideErrorMessage();
+                } else {
+                    // Display error message
+                    displayErrorMessage(data.error);
+                }
+            } catch (error) {
+                console.error('Error uploading files:', error);
+                displayErrorMessage('Error uploading files. Please try again.');
+            }
+        }
+        
+        // Function to display error message
+        function displayErrorMessage(message) {
+            const errorMessage = document.getElementById('errorMessage');
+            errorMessage.textContent = message;
+            errorMessage.style.display = 'block';
+        }
+        // Function to hide error message
+        function hideErrorMessage() {
+            const errorMessage = document.getElementById('errorMessage');
+            errorMessage.style.display = 'none';
+        }
+    </script>
+</body>
+</html>
